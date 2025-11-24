@@ -1,0 +1,727 @@
+import React, { useState, useEffect } from 'react';
+import { 
+  Plane, 
+  Train, 
+  Car, 
+  MapPin, 
+  Utensils, 
+  Camera, 
+  Info, 
+  Phone, 
+  CreditCard, 
+  Sun, 
+  CloudRain, 
+  Cloud, 
+  ChevronRight, 
+  X,
+  Navigation,
+  Calendar,
+  Briefcase,
+  Home
+} from 'lucide-react';
+
+// --- Types & Data Structures ---
+
+type ItineraryItem = {
+  id: string;
+  time: string;
+  title: string;
+  type: 'transport' | 'spot' | 'food' | 'hotel' | 'flight';
+  location: string;
+  description?: string;
+  tips?: string[]; // 必吃、必買、攻略
+  bookingCode?: string; // 預約代號/關鍵字
+  bookingImage?: string; // 模擬票券圖片
+  lat?: number; // For navigation
+  lng?: number; // For navigation
+};
+
+type DayPlan = {
+  date: string;
+  dayOfWeek: string;
+  weather: { temp: string; icon: 'sun' | 'rain' | 'cloud' };
+  items: ItineraryItem[];
+};
+
+// --- Mock Data (Based on user's PDF + Suggestion) ---
+
+const itineraryData: DayPlan[] = [
+  {
+    date: '12/3',
+    dayOfWeek: '週三',
+    weather: { temp: '14°C', icon: 'cloud' },
+    items: [
+      {
+        id: '1-1',
+        time: '07:30',
+        title: '星宇航空 JX846',
+        type: 'flight',
+        location: '桃園機場 (TPE) T1',
+        description: '飛往熊本 (KMJ)，預計 10:30 抵達。',
+        bookingCode: 'REF: KYU-1203-STAR',
+        tips: ['💡 記得提前2小時抵達機場', '💡 飛機餐推薦胡同燒肉'],
+      },
+      {
+        id: '1-2',
+        time: '12:00',
+        title: '機場巴士移動',
+        type: 'transport',
+        location: '熊本機場 → 熊本站',
+        description: '搭乘機場利木津巴士前往市區。',
+        tips: ['💡 可使用 IC 卡 (Suica/ICOCA)'],
+      },
+      {
+        id: '1-3',
+        time: '13:00',
+        title: '新幹線 瑞穗/櫻花號',
+        type: 'transport',
+        location: '熊本站 → 博多站',
+        description: '轉乘新幹線前往福岡，車程約 32 分鐘。',
+        tips: ['⚠️ 務必預約「特大行李席」', '💡 推薦在車站買熊本熊便當'],
+        bookingCode: 'JR-RES-9988'
+      },
+      {
+        id: '1-4',
+        time: '14:30',
+        title: 'KOKO HOTEL 福岡天神',
+        type: 'hotel',
+        location: '福岡縣福岡市中央區今泉1-22-14',
+        description: 'Check-in 寄放行李。位於天神南站附近，交通方便。',
+        bookingCode: 'AGODA-55214'
+      },
+      {
+        id: '1-5',
+        time: '15:30',
+        title: '櫛田神社',
+        type: 'spot',
+        location: '福岡市博多區上川端町１−41',
+        description: '博多總鎮守，必看巨大的裝飾山笠。',
+        tips: ['💡 必買：博多織御守', '💡 參拜後可逛旁邊的川端通商店街']
+      },
+      {
+        id: '1-6',
+        time: '18:30',
+        title: '博多摩滋鍋 (晚餐)',
+        type: 'food',
+        location: '博多摩滋鍋 前田屋/大山',
+        description: '福岡必吃牛腸鍋，濃郁味噌口味。',
+        tips: ['🔥 必點：味噌口味牛腸鍋', '🔥 收尾必點：強棒麵']
+      }
+    ]
+  },
+  {
+    date: '12/4',
+    dayOfWeek: '週四',
+    weather: { temp: '12°C', icon: 'sun' },
+    items: [
+      {
+        id: '2-1',
+        time: '09:00',
+        title: '移動：西鐵電車',
+        type: 'transport',
+        location: '西鐵福岡(天神) → 太宰府',
+        description: '搭乘旅人號觀光列車(如有遇到)。',
+      },
+      {
+        id: '2-2',
+        time: '10:00',
+        title: '太宰府天滿宮',
+        type: 'spot',
+        location: '太宰府天滿宮',
+        description: '學問之神，賞梅名所（雖然現在是冬天）。',
+        tips: ['🥯 必吃：梅枝餅 (推薦加薩諾亞 Kasanoya)', '💡 摸御神牛的頭會變聰明']
+      },
+      {
+        id: '2-3',
+        time: '12:00',
+        title: '一蘭拉麵 太宰府參道店',
+        type: 'food',
+        location: '太宰府參道',
+        description: '全球唯一的五角形碗，象徵「合格」。',
+        tips: ['🔥 麵條比一般的長(象徵長壽/長久)', '💡 湯喝完碗底有「決定」二字']
+      },
+      {
+        id: '2-4',
+        time: '14:00',
+        title: '竈門神社',
+        type: 'spot',
+        location: '竈門神社',
+        description: '鬼滅之刃聖地，結緣神社。需搭乘社區巴士「摩訶耶」。',
+        tips: ['💡 這裡的御守設計非常時尚，適合當伴手禮']
+      }
+    ]
+  },
+  {
+    date: '12/5',
+    dayOfWeek: '週五',
+    weather: { temp: '8°C', icon: 'cloud' },
+    items: [
+      {
+        id: '3-1',
+        time: '09:00',
+        title: '租車取車',
+        type: 'transport',
+        location: 'TOYOTA Rent a Car 藥院站前店',
+        description: '辦理租車手續，確認 ETC 卡。',
+        bookingCode: 'RES: TOYOTA-8821',
+        tips: ['⚠️ 檢查車身刮痕', '⚠️ 設定導航至阿蘇']
+      },
+      {
+        id: '3-2',
+        time: '12:30',
+        title: '阿蘇赤牛丼 (午餐)',
+        type: 'food',
+        location: '阿蘇 Imakin食堂 (或周邊)',
+        description: '阿蘇必吃美食，半熟紅牛肉鋪滿丼飯。',
+        tips: ['🔥 必吃：赤牛丼', '💡 如果Imakin排太久，可去 Meshi-no-sato']
+      },
+      {
+        id: '3-3',
+        time: '14:00',
+        title: '草千里之濱 & 阿蘇火口',
+        type: 'spot',
+        location: '阿蘇山草千里',
+        description: '一望無際的大草原與冒煙的火山口。',
+        tips: ['💡 山上風大，請帶厚外套', '💡 必買：阿蘇牛奶冰淇淋']
+      },
+      {
+        id: '3-4',
+        time: '15:30',
+        title: '大觀峰展望所',
+        type: 'spot',
+        location: '大觀峰',
+        description: '360度眺望阿蘇五岳(涅槃像)的最佳地點。',
+      },
+      {
+        id: '3-5',
+        time: '16:30',
+        title: '黑川溫泉 Check-in',
+        type: 'hotel',
+        location: '黒川温泉 やまびこ旅館',
+        description: '入住日式溫泉旅館，享受仙人風呂。',
+        bookingCode: 'JAPANICAN-9921',
+        tips: ['💡 購買「入湯手形」可泡三間不同溫泉', '💡 晚餐前先去泡湯']
+      }
+    ]
+  },
+  {
+    date: '12/6',
+    dayOfWeek: '週六',
+    weather: { temp: '5°C', icon: 'cloud' },
+    items: [
+      {
+        id: '4-1',
+        time: '10:00',
+        title: '上色見熊野座神社',
+        type: 'spot',
+        location: '上色見熊野座神社',
+        description: '通往異世界的入口，充滿青苔的神秘階梯。',
+        tips: ['📸 必拍：參道階梯與穿透岩石的風穴']
+      },
+      {
+        id: '4-2',
+        time: '12:00',
+        title: '高森田樂保存會 (午餐)',
+        type: 'food',
+        location: '高森田楽保存会',
+        description: '圍著地爐吃味噌烤串，非常有氣氛。',
+      },
+      {
+        id: '4-3',
+        time: '13:30',
+        title: '天岩戶神社 & 天安河原',
+        type: 'spot',
+        location: '天岩戸神社 西本宮',
+        description: '日本神話起源地，在此堆石頭許願。',
+      },
+      {
+        id: '4-4',
+        time: '15:00',
+        title: 'Solest Takachiho Hotel',
+        type: 'hotel',
+        location: 'Solest Takachiho Hotel',
+        description: 'Check-in 休息。',
+        bookingCode: 'BOOKING-1122'
+      },
+      {
+        id: '4-5',
+        time: '17:00',
+        title: '高千穗燒肉「和」',
+        type: 'food',
+        location: '高千穂牛レストラン和',
+        description: '頂級高千穗牛燒肉。',
+        tips: ['⚠️ 需提前預約', '🔥 必點：高千穗牛里脊'],
+        bookingCode: 'TEL-RES-NAME-CHEN'
+      },
+      {
+        id: '4-6',
+        time: '20:00',
+        title: '高千穗神樂',
+        type: 'spot',
+        location: '高千穗神社',
+        description: '夜神樂表演，體驗日本傳統文化。',
+        tips: ['💡 19:00 開放入場，建議提早去佔位']
+      }
+    ]
+  },
+  {
+    date: '12/7',
+    dayOfWeek: '週日',
+    weather: { temp: '9°C', icon: 'sun' },
+    items: [
+      {
+        id: '5-1',
+        time: '09:00',
+        title: '高千穗峽 划船',
+        type: 'spot',
+        location: '高千穗峽淡水魚水族館(乘船處)',
+        description: '在峽谷中划船，近距離看真名井瀑布。',
+        tips: ['⚠️ 務必事先上網預約', '📸 必拍：瀑布與船的合影'],
+        bookingCode: 'BOAT-RES-3344'
+      },
+      {
+        id: '5-2',
+        time: '12:00',
+        title: '流水素麵 (午餐)',
+        type: 'food',
+        location: '千穗之家',
+        description: '體驗竹管流水素麵。',
+      },
+      {
+        id: '5-3',
+        time: '15:00',
+        title: '熊本還車',
+        type: 'transport',
+        location: 'TOYOTA Rent a Car 熊本站前店',
+        description: '加滿油後還車。',
+      },
+      {
+        id: '5-4',
+        time: '15:30',
+        title: 'CANDEN HOTEL 熊本',
+        type: 'hotel',
+        location: 'CANDEO HOTELS 熊本新市街',
+        description: 'Check-in，位於新市街商店街內。',
+        bookingCode: 'AGODA-8811'
+      }
+    ]
+  },
+  {
+    date: '12/8',
+    dayOfWeek: '週一',
+    weather: { temp: '11°C', icon: 'sun' },
+    items: [
+      {
+        id: '6-1',
+        time: '10:00',
+        title: '熊本城 & 城彩苑',
+        type: 'spot',
+        location: '熊本城',
+        description: '參觀修復中的熊本城天守閣與城下町。',
+        tips: ['🍦 必吃：城彩苑的海膽可樂餅', '📸 天守閣頂樓風景']
+      },
+      {
+        id: '6-2',
+        time: '12:30',
+        title: '熊本拉麵 (午餐)',
+        type: 'food',
+        location: '黑亭拉麵 / 桂花拉麵',
+        description: '特色是濃郁的焦香蒜油。',
+      },
+      {
+        id: '6-3',
+        time: '14:30',
+        title: '下通/上通商店街',
+        type: 'spot',
+        location: '熊本下通商店街',
+        description: '最後採買伴手禮。',
+        tips: ['🛍️ 必逛：鶴屋百貨熊本熊部長辦公室', '🛍️ 藥妝店比價']
+      },
+       {
+        id: '6-4',
+        time: '18:00',
+        title: '熊本馬肉料理 (晚餐)',
+        type: 'food',
+        location: '管乃屋 / 馬櫻',
+        description: '熊本名物生馬肉體驗。',
+      }
+    ]
+  },
+  {
+    date: '12/9',
+    dayOfWeek: '週二',
+    weather: { temp: '13°C', icon: 'cloud' },
+    items: [
+      {
+        id: '7-1',
+        time: '09:00',
+        title: '前往機場',
+        type: 'transport',
+        location: '熊本櫻町巴士總站',
+        description: '搭乘機場巴士前往熊本機場。',
+      },
+      {
+        id: '7-2',
+        time: '11:45',
+        title: '星宇航空 JX847',
+        type: 'flight',
+        location: '熊本機場 (KMJ)',
+        description: '飛往桃園 (TPE)，預計 13:25 抵達。',
+        bookingCode: 'REF: KYU-1209-STAR'
+      },
+      {
+        id: '7-3',
+        time: '15:43',
+        title: '台灣高鐵',
+        type: 'transport',
+        location: '高鐵桃園站',
+        description: '搭乘高鐵返回台南。',
+      }
+    ]
+  }
+];
+
+// --- Components ---
+
+const WeatherBadge = ({ temp, icon }: { temp: string; icon: 'sun' | 'rain' | 'cloud' }) => {
+  const getIcon = () => {
+    switch(icon) {
+      case 'sun': return <Sun size={16} className="text-orange-500" />;
+      case 'rain': return <CloudRain size={16} className="text-blue-500" />;
+      default: return <Cloud size={16} className="text-gray-500" />;
+    }
+  };
+  return (
+    <div className="flex items-center gap-1 bg-white/80 backdrop-blur px-2 py-1 rounded-full text-xs font-medium shadow-sm border border-stone-200">
+      {getIcon()}
+      <span className="text-stone-700">{temp}</span>
+    </div>
+  );
+};
+
+const CategoryIcon = ({ type }: { type: string }) => {
+  switch (type) {
+    case 'flight': return <Plane size={18} className="text-sky-600" />;
+    case 'transport': return <Train size={18} className="text-indigo-600" />;
+    case 'food': return <Utensils size={18} className="text-orange-600" />;
+    case 'hotel': return <Home size={18} className="text-emerald-600" />;
+    case 'spot': return <Camera size={18} className="text-rose-600" />;
+    default: return <MapPin size={18} className="text-gray-600" />;
+  }
+};
+
+const DetailModal = ({ item, onClose }: { item: ItineraryItem; onClose: () => void }) => {
+  if (!item) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="bg-[#fdfbf7] w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden border border-stone-200">
+        <div className="p-4 border-b border-stone-200 flex justify-between items-center bg-white">
+          <h3 className="font-bold text-stone-800 text-lg flex items-center gap-2">
+            <CategoryIcon type={item.type} />
+            {item.title}
+          </h3>
+          <button onClick={onClose} className="p-1 hover:bg-stone-100 rounded-full">
+            <X size={20} className="text-stone-500" />
+          </button>
+        </div>
+        
+        <div className="p-5 space-y-4">
+          <div className="space-y-1">
+            <p className="text-xs font-bold text-stone-400 uppercase tracking-wider">TIME & LOCATION</p>
+            <p className="text-stone-800 font-medium text-lg">{item.time}</p>
+            <p className="text-stone-600">{item.location}</p>
+          </div>
+
+          {item.bookingCode && (
+            <div className="bg-stone-100 p-3 rounded-lg border border-stone-200 dashed">
+              <p className="text-xs text-stone-500 mb-1">預約/訂位代號</p>
+              <p className="font-mono text-lg font-bold text-stone-800 tracking-wider">{item.bookingCode}</p>
+            </div>
+          )}
+
+          {item.description && (
+             <div className="space-y-1">
+               <p className="text-xs font-bold text-stone-400 uppercase tracking-wider">DETAILS</p>
+               <p className="text-stone-700 leading-relaxed text-sm">{item.description}</p>
+             </div>
+          )}
+          
+          {item.tips && item.tips.length > 0 && (
+            <div className="bg-amber-50 p-3 rounded-lg border border-amber-100">
+              <p className="text-xs font-bold text-amber-600 mb-2 flex items-center gap-1">
+                <Info size={12} /> 達人筆記
+              </p>
+              <ul className="space-y-1">
+                {item.tips.map((tip, idx) => (
+                  <li key={idx} className="text-xs text-amber-900 flex items-start gap-1">
+                    <span>•</span>
+                    <span>{tip}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          <a 
+            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(item.location)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-center gap-2 w-full py-3 bg-stone-800 text-white rounded-xl hover:bg-stone-700 transition-colors font-medium shadow-lg shadow-stone-200"
+          >
+            <Navigation size={18} />
+            開啟 Google Maps 導航
+          </a>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const ToolsSection = () => {
+  const [expenses, setExpenses] = useState<{item: string, price: number}[]>([
+    { item: '福岡午餐', price: 2500 },
+    { item: '便利商店', price: 800 }
+  ]);
+  const [newExpense, setNewExpense] = useState('');
+  const [newPrice, setNewPrice] = useState('');
+
+  const addExpense = () => {
+    if (newExpense && newPrice) {
+      setExpenses([...expenses, { item: newExpense, price: parseInt(newPrice) }]);
+      setNewExpense('');
+      setNewPrice('');
+    }
+  };
+
+  const total = expenses.reduce((sum, curr) => sum + curr.price, 0);
+
+  return (
+    <div className="space-y-6 p-1 pb-20">
+      <div className="bg-white rounded-xl p-4 shadow-sm border border-stone-100">
+        <h3 className="font-bold text-stone-800 mb-3 flex items-center gap-2">
+          <Phone size={18} className="text-rose-500" /> 緊急聯絡
+        </h3>
+        <div className="space-y-3 text-sm">
+          <div className="flex justify-between border-b border-stone-50 pb-2">
+            <span className="text-stone-500">救護車/火警</span>
+            <span className="font-mono font-bold text-rose-600">119</span>
+          </div>
+          <div className="flex justify-between border-b border-stone-50 pb-2">
+            <span className="text-stone-500">警察局</span>
+            <span className="font-mono font-bold text-rose-600">110</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-stone-500">台北駐大阪辦事處福岡分處</span>
+            <span className="font-mono font-bold text-stone-800">092-734-2810</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-xl p-4 shadow-sm border border-stone-100">
+        <h3 className="font-bold text-stone-800 mb-3 flex items-center gap-2">
+          <Briefcase size={18} className="text-indigo-500" /> 航班資訊
+        </h3>
+        <div className="bg-indigo-50 rounded-lg p-3 mb-2">
+          <div className="flex justify-between text-xs text-indigo-400 mb-1">12/03 去程</div>
+          <div className="font-bold text-indigo-900">JX 846 TPE - KMJ</div>
+          <div className="text-sm text-indigo-700">07:30 - 10:30</div>
+        </div>
+        <div className="bg-indigo-50 rounded-lg p-3">
+          <div className="flex justify-between text-xs text-indigo-400 mb-1">12/09 回程</div>
+          <div className="font-bold text-indigo-900">JX 847 KMJ - TPE</div>
+          <div className="text-sm text-indigo-700">11:45 - 13:25</div>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-xl p-4 shadow-sm border border-stone-100">
+        <h3 className="font-bold text-stone-800 mb-3 flex items-center gap-2">
+          <CreditCard size={18} className="text-emerald-500" /> 記帳小幫手 (JPY)
+        </h3>
+        <div className="flex gap-2 mb-4">
+          <input 
+            type="text" 
+            placeholder="項目" 
+            className="flex-1 bg-stone-50 border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-stone-400"
+            value={newExpense}
+            onChange={(e) => setNewExpense(e.target.value)}
+          />
+          <input 
+            type="number" 
+            placeholder="¥" 
+            className="w-20 bg-stone-50 border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-stone-400"
+            value={newPrice}
+            onChange={(e) => setNewPrice(e.target.value)}
+          />
+          <button 
+            onClick={addExpense}
+            className="bg-stone-800 text-white px-3 rounded-lg text-sm font-medium"
+          >
+            +
+          </button>
+        </div>
+        <div className="space-y-2 max-h-40 overflow-y-auto">
+          {expenses.map((ex, i) => (
+            <div key={i} className="flex justify-between text-sm text-stone-600">
+              <span>{ex.item}</span>
+              <span className="font-mono">¥{ex.price}</span>
+            </div>
+          ))}
+        </div>
+        <div className="mt-3 pt-3 border-t border-stone-100 flex justify-between font-bold text-stone-800">
+          <span>Total</span>
+          <span className="font-mono text-emerald-600">¥{total}</span>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default function KyushuTravelLog() {
+  const [activeTab, setActiveTab] = useState<'itinerary' | 'tools'>('itinerary');
+  const [selectedDayIndex, setSelectedDayIndex] = useState(0);
+  const [selectedItem, setSelectedItem] = useState<ItineraryItem | null>(null);
+
+  const currentDay = itineraryData[selectedDayIndex];
+
+  return (
+    <div className="min-h-screen bg-[#f5f2eb] font-sans text-stone-800 flex flex-col items-center">
+      {/* Container for mobile-first simulation */}
+      <div className="w-full max-w-md bg-[#fdfbf7] min-h-screen shadow-2xl relative flex flex-col">
+        
+        {/* Header */}
+        <header className="sticky top-0 z-10 bg-[#fdfbf7]/90 backdrop-blur-md border-b border-stone-200 px-5 py-4 flex justify-between items-end">
+          <div>
+            <p className="text-xs font-bold text-stone-400 tracking-widest uppercase mb-1">JAPAN TRIP 2024</p>
+            <h1 className="text-2xl font-bold text-stone-800 font-serif">九州旅帖</h1>
+          </div>
+          {activeTab === 'itinerary' && (
+            <div className="text-right">
+              <WeatherBadge temp={currentDay.weather.temp} icon={currentDay.weather.icon} />
+            </div>
+          )}
+        </header>
+
+        {/* Content Area */}
+        <main className="flex-1 overflow-y-auto scrollbar-hide">
+          
+          {activeTab === 'itinerary' ? (
+            <>
+              {/* Date Selector */}
+              <div className="sticky top-[73px] z-10 bg-[#fdfbf7] py-2 border-b border-stone-100 shadow-sm">
+                <div className="flex overflow-x-auto px-4 gap-3 pb-2 scrollbar-hide snap-x">
+                  {itineraryData.map((day, idx) => (
+                    <button
+                      key={day.date}
+                      onClick={() => setSelectedDayIndex(idx)}
+                      className={`flex-shrink-0 snap-center flex flex-col items-center justify-center w-14 h-16 rounded-xl transition-all duration-300 ${
+                        selectedDayIndex === idx 
+                          ? 'bg-stone-800 text-white shadow-lg scale-105' 
+                          : 'bg-white text-stone-400 border border-stone-100'
+                      }`}
+                    >
+                      <span className="text-xs font-medium">{day.date}</span>
+                      <span className={`text-sm font-bold ${selectedDayIndex === idx ? 'text-stone-200' : 'text-stone-600'}`}>
+                        {day.dayOfWeek}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Timeline Items */}
+              <div className="p-5 pb-24 space-y-6">
+                {currentDay.items.map((item, idx) => (
+                  <div key={item.id} className="relative pl-6 group">
+                    {/* Timeline Line */}
+                    {idx !== currentDay.items.length - 1 && (
+                      <div className="absolute left-[11px] top-8 bottom-[-24px] w-[2px] bg-stone-200" />
+                    )}
+                    
+                    {/* Timeline Dot */}
+                    <div className={`absolute left-0 top-1.5 w-6 h-6 rounded-full border-4 border-[#fdfbf7] flex items-center justify-center
+                      ${item.type === 'transport' ? 'bg-indigo-500' : 
+                        item.type === 'food' ? 'bg-orange-500' : 
+                        item.type === 'spot' ? 'bg-rose-500' : 
+                        item.type === 'flight' ? 'bg-sky-500' : 'bg-emerald-500'}`}
+                    >
+                    </div>
+
+                    {/* Card */}
+                    <div 
+                      onClick={() => setSelectedItem(item)}
+                      className="bg-white rounded-xl p-4 shadow-sm border border-stone-100 active:scale-98 transition-transform cursor-pointer hover:shadow-md"
+                    >
+                      <div className="flex justify-between items-start mb-2">
+                        <span className="text-xs font-mono font-bold text-stone-400 bg-stone-50 px-2 py-0.5 rounded">
+                          {item.time}
+                        </span>
+                        {item.bookingCode && (
+                          <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100">
+                            已預約
+                          </span>
+                        )}
+                      </div>
+                      
+                      <div className="flex gap-3">
+                        <div className="flex-1">
+                          <h3 className="font-bold text-stone-800 text-base mb-1">{item.title}</h3>
+                          <p className="text-xs text-stone-500 line-clamp-1 mb-2">{item.location}</p>
+                          
+                          {/* Mini Tags */}
+                          {item.tips && (
+                             <div className="flex flex-wrap gap-1 mt-2">
+                               {item.tips.slice(0, 2).map((tip, i) => (
+                                 <span key={i} className="text-[10px] bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded border border-amber-100">
+                                   {tip}
+                                 </span>
+                               ))}
+                             </div>
+                          )}
+                        </div>
+                        <div className="flex flex-col items-center justify-center pl-2 border-l border-stone-100 text-stone-300">
+                          <ChevronRight size={20} />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : (
+            <div className="p-5">
+              <ToolsSection />
+            </div>
+          )}
+        </main>
+
+        {/* Bottom Tab Bar */}
+        <nav className="sticky bottom-0 bg-white border-t border-stone-200 px-6 py-3 flex justify-around pb-6 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+          <button 
+            onClick={() => setActiveTab('itinerary')}
+            className={`flex flex-col items-center gap-1 transition-colors ${activeTab === 'itinerary' ? 'text-stone-800' : 'text-stone-400'}`}
+          >
+            <Calendar size={24} strokeWidth={activeTab === 'itinerary' ? 2.5 : 2} />
+            <span className="text-[10px] font-medium">行程</span>
+          </button>
+          
+          <div className="w-px h-8 bg-stone-200 mx-2 self-center"></div>
+
+          <button 
+            onClick={() => setActiveTab('tools')}
+            className={`flex flex-col items-center gap-1 transition-colors ${activeTab === 'tools' ? 'text-stone-800' : 'text-stone-400'}`}
+          >
+            <Briefcase size={24} strokeWidth={activeTab === 'tools' ? 2.5 : 2} />
+            <span className="text-[10px] font-medium">工具箱</span>
+          </button>
+        </nav>
+
+        {/* Modal */}
+        {selectedItem && (
+          <DetailModal item={selectedItem} onClose={() => setSelectedItem(null)} />
+        )}
+
+      </div>
+    </div>
+  );
+}
